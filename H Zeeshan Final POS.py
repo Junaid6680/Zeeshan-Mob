@@ -1,19 +1,17 @@
 import streamlit as st
 import pandas as pd
 from fpdf import FPDF
-import os
 
 # --- Page Config ---
 st.set_page_config(page_title="Zeeshan Mobile POS", layout="wide")
 
-# --- CSS for Watermark ---
+# --- Background Watermark Style ---
 st.markdown("""
     <style>
     .watermark {
-        position: fixed;
-        top: 50%; left: 50%;
+        position: fixed; top: 50%; left: 50%;
         transform: translate(-50%, -50%) rotate(-45deg);
-        opacity: 0.05; font-size: 80px; color: gray;
+        opacity: 0.05; font-size: 70px; color: gray;
         z-index: -1; pointer-events: none;
     }
     </style>
@@ -23,138 +21,130 @@ st.markdown("""
 # --- Data Persistence ---
 if 'customer_db' not in st.session_state:
     st.session_state.customer_db = {"Walking Customer": {"phone": "-", "balance": 0.0}}
-
 if 'temp_items' not in st.session_state:
     st.session_state.temp_items = []
 
-# --- PDF Function with Watermark ---
-def create_pdf(cust_name, phone, items, bill_total, old_bal, paid_amt, is_only_payment=False):
+# --- PDF Function (With Watermark & Your Contact) ---
+def create_pdf(cust_name, phone, items, bill_total, old_bal, paid_amt):
     pdf = FPDF()
     pdf.add_page()
     
-    # 1. Background Watermark
+    # 1. PDF Watermark
     pdf.set_font("Arial", 'B', 50)
     pdf.set_text_color(240, 240, 240)
     pdf.text(35, 150, "ZEESHAN MOBILE")
     
     # Header
     pdf.set_text_color(0, 51, 102)
-    pdf.set_font("Arial", 'B', 22)
-    pdf.cell(190, 12, "ZEESHAN MOBILE ACCESSORIES", ln=True, align='C')
-    pdf.set_font("Arial", 'B', 14)
+    pdf.set_font("Arial", 'B', 20)
+    pdf.cell(190, 10, "ZEESHAN MOBILE ACCESSORIES", ln=True, align='C')
+    pdf.set_font("Arial", 'B', 12)
     pdf.set_text_color(0, 0, 0)
-    pdf.cell(190, 8, "Contact: 03296971255", ln=True, align='C')
+    pdf.cell(190, 7, "Contact: 03296971255", ln=True, align='C')
     pdf.ln(10)
     
-    # Customer Details
-    pdf.set_font("Arial", 'B', 11)
+    # Info
+    pdf.set_font("Arial", 'B', 10)
     pdf.cell(95, 8, f"Customer: {cust_name}")
     pdf.cell(95, 8, f"Date: {pd.Timestamp.now().strftime('%d-%b-%Y')}", ln=True, align='R')
-    pdf.cell(95, 8, f"Phone: {phone}")
-    pdf.ln(8)
+    pdf.ln(5)
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
     pdf.ln(5)
     
-    if not is_only_payment:
-        # Table Header
-        pdf.set_fill_color(240, 240, 240)
-        pdf.set_font("Arial", 'B', 10)
-        pdf.cell(85, 10, " Item (Use - for Return)", 1, 0, 'L', True)
-        pdf.cell(25, 10, "Qty", 1, 0, 'C', True)
-        pdf.cell(40, 10, "Price", 1, 0, 'C', True)
-        pdf.cell(40, 10, "Total", 1, 1, 'C', True)
-        
-        # Items
-        pdf.set_font("Arial", '', 10)
-        for item in items:
-            pdf.cell(85, 10, f" {item['Item']}", 1)
-            pdf.cell(25, 10, str(item['Qty']), 1, 0, 'C')
-            pdf.cell(40, 10, str(item['Price']), 1, 0, 'C')
-            pdf.cell(40, 10, str(item['Total']), 1, 1, 'C')
-        pdf.ln(5)
-
+    # Table Header
+    pdf.set_fill_color(230, 230, 230)
+    pdf.cell(80, 10, " Item Description", 1, 0, 'L', True)
+    pdf.cell(25, 10, "Qty", 1, 0, 'C', True)
+    pdf.cell(40, 10, "Price", 1, 0, 'C', True)
+    pdf.cell(40, 10, "Total", 1, 1, 'C', True)
+    
+    # Table Rows
+    pdf.set_font("Arial", '', 10)
+    for item in items:
+        pdf.cell(80, 10, f" {item['Item']}", 1)
+        pdf.cell(25, 10, str(item['Qty']), 1, 0, 'C')
+        pdf.cell(40, 10, str(item['Price']), 1, 0, 'C')
+        pdf.cell(40, 10, str(item['Total']), 1, 1, 'C')
+    
     # Totals
     new_bal = (bill_total + old_bal) - paid_amt
-    pdf.set_font("Arial", 'B', 11)
-    if not is_only_payment:
-        pdf.cell(150, 8, "Current Bill Total:", 0, 0, 'R'); pdf.cell(40, 8, f"{bill_total}", 1, 1, 'C')
-    
-    pdf.cell(150, 8, "Previous Udhaar:", 0, 0, 'R'); pdf.cell(40, 8, f"{old_bal}", 1, 1, 'C')
-    pdf.set_fill_color(220, 255, 220)
-    pdf.cell(150, 8, "Amount Received:", 0, 0, 'R'); pdf.cell(40, 8, f"{paid_amt}", 1, 1, 'C', True)
-    
-    pdf.set_text_color(200, 0, 0)
-    pdf.set_font("Arial", 'B', 13)
-    pdf.cell(150, 10, "New Balance:", 0, 0, 'R'); pdf.cell(40, 10, f"{new_bal}", 1, 1, 'C')
+    pdf.ln(5)
+    pdf.set_font("Arial", 'B', 10)
+    pdf.cell(150, 8, "Current Bill:", 0, 0, 'R'); pdf.cell(40, 8, f"{bill_total}", 1, 1, 'C')
+    pdf.cell(150, 8, "Old Udhaar:", 0, 0, 'R'); pdf.cell(40, 8, f"{old_bal}", 1, 1, 'C')
+    pdf.cell(150, 8, "Amount Paid:", 0, 0, 'R'); pdf.cell(40, 8, f"{paid_amt}", 1, 1, 'C')
+    pdf.set_font("Arial", 'B', 12); pdf.set_text_color(200, 0, 0)
+    pdf.cell(150, 10, "Remaining Balance:", 0, 0, 'R'); pdf.cell(40, 10, f"{new_bal}", 1, 1, 'C')
     
     return pdf.output(dest='S').encode('latin-1')
 
-# --- UI Layout ---
-st.title("📱 Zeeshan Mobile POS")
+# --- MAIN UI ---
+st.title("📱 Zeeshan Mobile Accessories")
 st.write("Contact: **03296971255**")
 
-col_main, col_sidebar = st.columns([2, 1])
+# --- 1. Customer Section ---
+st.header("👤 Customer Management")
+col_c1, col_c2 = st.columns(2)
 
-with col_sidebar:
-    st.header("👤 Customer Ledger")
-    c_list = sorted(list(st.session_state.customer_db.keys()))
-    sel_c = st.selectbox("Select Customer", c_list)
-    c_data = st.session_state.customer_db[sel_c]
-    
-    st.info(f"💰 Current Udhaar: **Rs. {c_data['balance']}**")
-    
-    # Receive Payment only
-    st.subheader("Wasooli (No Bill)")
-    wasool = st.number_input("Amount Received", 0.0, key="w1")
-    if st.button("Save Payment"):
-        if wasool > 0:
-            st.session_state.customer_db[sel_c]['balance'] -= wasool
-            pdf_w = create_pdf(sel_c, c_data['phone'], [], 0, c_data['balance']+wasool, wasool, True)
-            st.download_button("📥 Get Receipt", pdf_w, f"Receipt_{sel_c}.pdf", "application/pdf")
-            st.rerun()
+with col_c1:
+    customer_list = sorted(list(st.session_state.customer_db.keys()))
+    selected_cust = st.selectbox("Select Customer for Billing", customer_list)
+    cust_data = st.session_state.customer_db[selected_cust]
+    st.write(f"📌 **Current Udhaar: Rs. {cust_data['balance']}**")
 
-with col_main:
-    st.header("📦 Billing & Returns")
-    st.write("_Hint: Item return ke liye Quantity ko minus mein likhein (e.g. -1)_")
-    
-    c1, c2, c3 = st.columns([3, 1, 1])
-    it_name = c1.text_input("Item")
-    # Return ke liye step -1 set kiya hai
-    it_qty = c2.number_input("Qty", step=1, value=1)
-    it_prc = c3.number_input("Price", 0)
-    
-    if st.button("Add to List"):
-        if it_name:
-            st.session_state.temp_items.append({"Item": it_name, "Qty": it_qty, "Price": it_prc, "Total": it_qty * it_prc})
-    
-    if st.session_state.temp_items:
-        df = pd.DataFrame(st.session_state.temp_items)
-        st.table(df)
-        b_total = df['Total'].sum()
-        st.write(f"### Final Total: {b_total}")
-        
-        amt_paid = st.number_input("Amount Paid Today", 0.0)
-        
-        if st.button("Finalize & Save Bill"):
-            old_b = c_data['balance']
-            st.session_state.customer_db[sel_c]['balance'] = (b_total + old_b) - amt_paid
-            
-            pdf_b = create_pdf(sel_c, c_data['phone'], st.session_state.temp_items, b_total, old_b, amt_paid)
-            st.download_button("📥 Download PDF Bill (Watermarked)", pdf_b, f"Bill_{sel_c}.pdf", "application/pdf")
-            
-            st.session_state.temp_items = []
-            st.success("Record Updated!")
+with col_c2:
+    with st.expander("➕ Add New Customer"):
+        new_n = st.text_input("Customer Name")
+        new_p = st.text_input("Phone Number")
+        new_b = st.number_input("Opening Udhaar", 0.0)
+        if st.button("Save New Customer"):
+            if new_n:
+                st.session_state.customer_db[new_n] = {"phone": new_p, "balance": new_b}
+                st.rerun()
 
-# --- Ledger Search & Backup ---
 st.divider()
-st.header("📒 Ledger Record & Backup")
-search_n = st.text_input("Search Name")
-l_df = pd.DataFrame.from_dict(st.session_state.customer_db, orient='index').reset_index()
-l_df.columns = ["Name", "Phone", "Balance"]
-if search_n:
-    l_df = l_df[l_df["Name"].str.contains(search_n, case=False)]
-st.dataframe(l_df, use_container_width=True)
 
-# Full System Backup
-csv_file = l_df.to_csv(index=False).encode('utf-8')
-st.download_button("💾 Download Full Backup (CSV)", csv_file, "Zeeshan_Mobile_Backup.csv", "text/csv")
+# --- 2. Billing Section ---
+st.header("📦 New Bill & Returns")
+st.info("Tip: Item wapsi ke liye Qty ko minus (-1) likhein.")
+
+col_i1, col_i2, col_i3 = st.columns([3,1,1])
+item_name = col_i1.text_input("Item Name")
+item_qty = col_i2.number_input("Qty", step=1, value=1)
+item_price = col_i3.number_input("Price", 0)
+
+if st.button("➕ Add Item to List"):
+    if item_name:
+        st.session_state.temp_items.append({"Item": item_name, "Qty": item_qty, "Price": item_price, "Total": item_qty * item_price})
+
+if st.session_state.temp_items:
+    df = pd.DataFrame(st.session_state.temp_items)
+    st.table(df)
+    bill_total = df['Total'].sum()
+    st.subheader(f"Total Bill: Rs. {bill_total}")
+    
+    paid_now = st.number_input("Amount Paid Now", 0.0)
+    
+    if st.button("✅ Save & Generate Bill PDF"):
+        old_bal = cust_data['balance']
+        st.session_state.customer_db[selected_cust]['balance'] = (bill_total + old_bal) - paid_now
+        
+        pdf_out = create_pdf(selected_cust, cust_data['phone'], st.session_state.temp_items, bill_total, old_bal, paid_now)
+        st.download_button("📥 Click Here to Download/Print Bill", pdf_out, f"Bill_{selected_cust}.pdf", "application/pdf")
+        
+        st.session_state.temp_items = []
+        st.success("Record saved successfully!")
+
+st.divider()
+
+# --- 3. Ledger & Backup ---
+st.header("📒 Ledger & Backup")
+search = st.text_input("🔍 Search Customer")
+ledger_df = pd.DataFrame.from_dict(st.session_state.customer_db, orient='index').reset_index()
+ledger_df.columns = ["Name", "Phone", "Balance"]
+if search:
+    ledger_df = ledger_df[ledger_df["Name"].str.contains(search, case=False)]
+st.dataframe(ledger_df, use_container_width=True)
+
+csv_data = ledger_df.to_csv(index=False).encode('utf-8')
+st.download_button("💾 Download All Data Backup (CSV)", csv_data, "Zeeshan_Mobile_Backup.csv", "text/csv")
